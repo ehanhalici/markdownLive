@@ -39,9 +39,20 @@ int CodeEditor::lineNumberAreaWidth() {
     int digits = 1;
     int max = qMax(1, document()->blockCount());
     while (max >= 10) { max /= 10; digits++; }
+
+    // --- YENİ: Numaralar için Özel Font Ayarı ---
+    QFont numFont = this->font(); // Editörün fontunu al
+    numFont.setPointSize(6);
+    // İstersen font ailesini de değiştirebilirsin:
+    // numFont.setFamily("Segoe UI"); 
     
-    // Ok işareti için fazladan +15 piksel ekledik
-    int space = 25 + fontMetrics().horizontalAdvance(QLatin1Char('9')) * digits;
+    QFontMetrics numMetrics(numFont);
+    // --------------------------------------------
+
+    // Genişliği bu yeni küçük fonta göre hesapla
+    // +25 piksel padding (ok işareti ve kenar boşluğu için)
+    int space = 25 + numMetrics.horizontalAdvance(QLatin1Char('9')) * digits;
+
     return space;
 }
 
@@ -149,60 +160,79 @@ void CodeEditor::processLineNumberAreaEvent(QMouseEvent *event) {
 // --- GÜNCELLENMİŞ: Çizim Olayı ---
 void CodeEditor::lineNumberAreaPaintEvent(QPaintEvent *event) {
     QPainter painter(lineNumberArea);
-    painter.fillRect(event->rect(), QColor("#252526"));
+    
+    // --- 1. ARKA PLAN RENGİ ---
+    // Buraya istediğin rengi verebilirsin. 
+    // #202020: Çok koyu gri (Obsidian Sol Panel Rengi)
+    // #1e1e1e: Editörle aynı renk (Daha bütünleşik durur)
+    painter.fillRect(event->rect(), QColor("#181818")); 
+
+    // --- 2. NUMARA FONTU AYARI ---
+    QFont numFont = this->font();
+    numFont.setPointSize(10); // Boyutu küçült (Yukarıdakiyle aynı olmalı)
+    // numFont.setBold(true); // İstersen kalın yapabilirsin
+    painter.setFont(numFont); // Ressama "Bu fontu kullan" diyoruz
+    
+    // Bu fontun ölçülerini al (Ortalamak için lazım)
+    QFontMetrics numMetrics(numFont);
+
+    // -----------------------------
 
     QTextBlock block = cursorForPosition(QPoint(0, 0)).block();
     int blockNumber = block.blockNumber();
+    
     int top = (int) document()->documentLayout()->blockBoundingRect(block).translated(0, -verticalScrollBar()->value()).top();
     int bottom = top + (int) document()->documentLayout()->blockBoundingRect(block).height();
 
     while (block.isValid() && top <= event->rect().bottom()) {
         if (block.isVisible() && bottom >= event->rect().top()) {
-            QString number = QString::number(block.blockNumber() + 1);
+            QString number = QString::number(blockNumber + 1);
             
-            // --- OK ÇİZİMİ ---
+            // --- OK İŞARETİ ÇİZİMİ ---
             int level = getHeaderLevel(block.text());
             if (level > 0) {
-                // Başlıksa ok çiz
-                bool isFolded = foldedBlocks.contains(block.blockNumber());
+                bool isFolded = foldedBlocks.contains(blockNumber);
                 
-                // Ok Rengi
-                painter.setPen(QColor("#c5c5c5"));
-                painter.setBrush(QColor("#c5c5c5"));
+                painter.setPen(QColor("#242424"));
+                painter.setBrush(QColor("#242424"));
                 
-                // Ok Koordinatları (Numaranın sağına)
                 QPolygonF arrow;
-                int arrowSize = 4; // Ok boyutu
-                int midY = top + fontMetrics().height() / 2;
+                int arrowSize = 4; 
+                // Ok işaretini yeni fontun yüksekliğine göre ortala
+                int midY = top + numMetrics.height() / 2; 
                 int arrowX = lineNumberArea->width() - 10; 
                 
-                if (isFolded) {
-                    // Kapalıyken (▶ Sağ Ok)
+                if (isFolded) { // Kapalıyken (Sağ Ok)
                     arrow << QPointF(arrowX, midY - arrowSize)
                           << QPointF(arrowX + arrowSize, midY)
                           << QPointF(arrowX, midY + arrowSize);
-                } else {
-                    // Açıkken (▼ Aşağı Ok)
+                } else { // Açıkken (Aşağı Ok)
                     arrow << QPointF(arrowX - arrowSize, midY - 2)
                           << QPointF(arrowX + arrowSize, midY - 2)
                           << QPointF(arrowX, midY + arrowSize - 2);
                 }
                 painter.drawPolygon(arrow);
             }
-            // -----------------
+            // -----------------------
 
-            bool isCurrentLine = (textCursor().blockNumber() == block.blockNumber());
-            painter.setPen(isCurrentLine ? QColor("#ffffff") : QColor("#6e7681"));
+            // Aktif satır kontrolü
+            bool isCurrentLine = (textCursor().blockNumber() == blockNumber);
             
-            // Numarayı çiz (Padding'i artırdık ok sığsın diye)
-            painter.drawText(0, top, lineNumberArea->width() - 15, fontMetrics().height(),
+            // Numaraların Rengi
+            if (isCurrentLine)
+                 painter.setPen(QColor("#bababa")); // Aktifse parlak gri/beyaz
+            else
+                 painter.setPen(QColor("#5c6370")); // Pasifse soluk gri (VS Code stili)
+            
+            // Numarayı Çiz
+            // height() olarak 'numMetrics.height()' kullanıyoruz ki küçük fonta göre ortalansın
+            painter.drawText(0, top, lineNumberArea->width() - 15, numMetrics.height(),
                              Qt::AlignRight | Qt::AlignVCenter, number);
         }
 
         block = block.next();
         top = bottom;
-        // Bir sonraki görünür bloğu bulana kadar atla (yüksekliği hesaplamak için)
-        // NOT: Döngü içinde visible kontrolü kritik, gizli bloklar yükseklik kaplamaz.
+        
         while(block.isValid() && !block.isVisible()) {
              block = block.next();
         }
@@ -210,5 +240,6 @@ void CodeEditor::lineNumberAreaPaintEvent(QPaintEvent *event) {
         if(block.isValid()) {
              bottom = top + (int) document()->documentLayout()->blockBoundingRect(block).height();
         }
+        blockNumber = block.blockNumber();
     }
 }
