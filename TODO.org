@@ -1,0 +1,16 @@
+- [ ] refactoring
+- [ ] tum regexler elden gececek
+- [ ] geri ileri
+- [ ] multi tab
+- [ ] external link acilmasi
+- [ ] format uste geldiginde de devam etsin
+- [ ] relative internal path destegi
+- [ ] yazi icinde resim destegi ve !
+- [ ] tab 4 karakter
+- [ ] otomatik tamamlamalar. otomatik tablar
+- [ ] dosya/dizin olustur sil ve tasi
+- [ ] ara
+- [ ] ortali metin, belli uzunktan sonra wrap
+- [ ] sol sekme kapanabilmeli
+- [ ] history ve kasa ozelliklerinin kaydedilmesi
+- [ ] save
